@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0b1120">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AVAwallet">
+    <meta name="description" content="AVA Passengers Transport - Financial Management">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233b82f6'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='Arial'%3EAVA%3C/text%3E%3C/svg%3E">
+    <title>AVAwallet Pro</title>
+    <style>
+        :root {
+            --bg: #0b1120;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --vat: #8b5cf6;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        /* PIN Screen */
+        #pinScreen { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+        .pin-logo { width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; margin-bottom: 24px; box-shadow: 0 8px 32px rgba(59,130,246,0.3); color: white; }
+        .pin-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .pin-subtitle { color: var(--text-muted); margin-bottom: 32px; font-size: 14px; }
+        .pin-dots { display: flex; gap: 16px; margin-bottom: 32px; }
+        .pin-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--surface-light); transition: all 0.2s; border: 2px solid transparent; }
+        .pin-dot.filled { background: var(--primary); border-color: #60a5fa; box-shadow: 0 0 12px rgba(59,130,246,0.5); }
+        .pin-error { color: var(--danger); font-size: 14px; margin-bottom: 16px; min-height: 20px; opacity: 0; transition: opacity 0.3s; font-weight: 500; }
+        .pin-error.show { opacity: 1; }
+        .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; max-width: 300px; }
+        .pin-key { aspect-ratio: 1; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 24px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; user-select: none; }
+        .pin-key:active { background: var(--surface-light); transform: scale(0.92); }
+        .pin-key.delete { font-size: 20px; color: var(--danger); }
+        .pin-key.empty { background: transparent; border: none; pointer-events: none; }
+
+        /* App Layout */
+        #app { display: none; max-width: 600px; margin: 0 auto; min-height: 100vh; padding-bottom: 100px; }
+        .app-header { position: sticky; top: 0; background: rgba(11,17,32,0.95); backdrop-filter: blur(12px); z-index: 100; padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .app-title { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, var(--primary), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .sync-badge { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); transition: all 0.3s; cursor: pointer; }
+        .sync-badge.synced { background: rgba(16,185,129,0.15); border-color: var(--success); color: var(--success); }
+        .sync-badge.syncing { background: rgba(59,130,246,0.15); border-color: var(--primary); color: var(--primary); animation: pulse 1.5s infinite; }
+        .sync-badge.failed { background: rgba(239,68,68,0.15); border-color: var(--danger); color: var(--danger); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: all 0.2s; }
+        .icon-btn:active { transform: scale(0.95); background: var(--surface-light); }
+        .icon-btn.active { background: var(--primary); border-color: var(--primary); }
+
+        /* Dashboard */
+        .dashboard { padding: 20px; }
+        .balance-card { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: var(--radius); padding: 28px; margin-bottom: 16px; box-shadow: 0 10px 40px rgba(59,130,246,0.25); position: relative; overflow: hidden; }
+        .balance-card::before { content: ''; position: absolute; top: -50%; right: -20%; width: 220px; height: 220px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+        .balance-label { font-size: 13px; opacity: 0.9; margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
+        .balance-amount { font-size: 38px; font-weight: 800; letter-spacing: -1px; }
+        .balance-amount.hidden { filter: blur(10px); user-select: none; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 18px 16px; }
+        .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; font-weight: 600; }
+        .stat-value { font-size: 22px; font-weight: 700; }
+        .stat-value.income { color: var(--success); }
+        .stat-value.expense { color: var(--danger); }
+        .stat-value.vat { color: var(--vat); }
+        .stat-value.hidden { filter: blur(8px); }
+        .vat-summary-card { background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+        .vat-summary-label { font-size: 12px; color: var(--vat); font-weight: 600; }
+        .vat-summary-value { font-size: 20px; font-weight: 700; color: var(--vat); }
+        .vat-summary-value.hidden { filter: blur(8px); }
+
+        /* Filters */
+        .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; margin-bottom: 12px; }
+        .section-title { font-size: 18px; font-weight: 700; }
+        .filter-tabs { display: flex; gap: 8px; padding: 0 20px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+        .filter-tabs::-webkit-scrollbar { display: none; }
+        .filter-tab { padding: 8px 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .filter-tab.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+        /* Transactions */
+        .transaction-list { padding: 0 20px; }
+        .transaction-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s; }
+        .transaction-item:active { transform: scale(0.98); background: var(--surface-light); }
+        .transaction-icon { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .transaction-icon.income { background: rgba(16,185,129,0.12); }
+        .transaction-icon.expense { background: rgba(239,68,68,0.12); }
+        .transaction-info { flex: 1; min-width: 0; }
+        .transaction-title { font-weight: 600; font-size: 15px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .transaction-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .transaction-amount { font-size: 16px; font-weight: 700; text-align: right; white-space: nowrap; }
+        .transaction-amount.income { color: var(--success); }
+        .transaction-amount.expense { color: var(--danger); }
+        .transaction-amount.hidden { filter: blur(6px); }
+        .sync-status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .sync-status-dot.synced { background: var(--success); }
+        .sync-status-dot.pending { background: var(--warning); }
+        .vat-badge { display: inline-block; background: rgba(139,92,246,0.15); color: var(--vat); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; border: 1px solid rgba(139,92,246,0.3); }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .empty-state-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.4; }
+
+        /* FAB */
+        .fab { position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border: none; color: white; font-size: 32px; cursor: pointer; box-shadow: 0 6px 24px rgba(59,130,246,0.4); display: flex; align-items: center; justify-content: center; z-index: 50; transition: all 0.3s; font-weight: 300; }
+        .fab:active { transform: scale(0.92); }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 200; display: none; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-sheet { background: var(--surface); width: 100%; max-width: 600px; max-height: 92vh; border-radius: var(--radius) var(--radius) 0 0; padding: 24px; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); overflow-y: auto; }
+        .modal-overlay.show .modal-sheet { transform: translateY(0); }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .modal-title { font-size: 20px; font-weight: 700; }
+        .modal-close { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-light); border: none; color: var(--text); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* Forms */
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.6px; }
+        .form-input, .form-select { width: 100%; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 16px; outline: none; transition: all 0.2s; }
+        .form-input:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .form-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+        .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--bg); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+        .type-option { padding: 14px; text-align: center; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700; transition: all 0.2s; border: 2px solid transparent; font-size: 15px; }
+        .type-option.selected { background: var(--surface); }
+        .type-option.income.selected { border-color: var(--success); color: var(--success); }
+        .type-option.expense.selected { border-color: var(--danger); color: var(--danger); }
+        .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .category-chip { padding: 12px 4px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border); text-align: center; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; line-height: 1.3; position: relative; }
+        .category-chip.selected { background: var(--primary); border-color: var(--primary); color: white; }
+        .receipt-upload { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg); }
+        .receipt-upload:hover { border-color: var(--primary); background: rgba(59,130,246,0.05); }
+        .receipt-upload.has-image { border-style: solid; border-color: var(--success); background: rgba(16,185,129,0.05); }
+        .receipt-preview { max-width: 100%; max-height: 180px; border-radius: var(--radius-sm); margin-top: 12px; display: block; margin-left: auto; margin-right: auto; }
+        .btn { width: 100%; padding: 16px; border-radius: var(--radius-sm); border: none; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; box-shadow: 0 4px 16px rgba(59,130,246,0.3); }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-secondary { background: var(--surface-light); color: var(--text); }
+        .btn-danger { background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+        .btn-success { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid var(--success); }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* VAT Toggle in Form */
+        .vat-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 20px; }
+        .vat-toggle-info { flex: 1; }
+        .vat-toggle-label { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+        .vat-toggle-desc { font-size: 12px; color: var(--text-muted); }
+        .vat-toggle-desc .vat-rate { color: var(--vat); font-weight: 700; }
+        .vat-amount-display { text-align: right; margin-bottom: 20px; padding: 12px 16px; background: rgba(139,92,246,0.08); border-radius: var(--radius-sm); border: 1px solid rgba(139,92,246,0.2); }
+        .vat-amount-display .vat-line { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+        .vat-amount-display .vat-line .vat-num { color: var(--vat); font-weight: 700; }
+
+        /* Category Manager */
+        .cat-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .cat-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+        .cat-item-icon { font-size: 22px; width: 36px; text-align: center; }
+        .cat-item-name { flex: 1; font-weight: 600; font-size: 14px; }
+        .cat-item-type { font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+        .cat-item-type.expense { background: rgba(239,68,68,0.12); color: var(--danger); }
+        .cat-item-type.income { background: rgba(16,185,129,0.12); color: var(--success); }
+        .cat-item-actions { display: flex; gap: 8px; }
+        .cat-action { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-light); border: none; color: var(--text); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        .cat-action.delete { color: var(--danger); }
+
+        /* Settings */
+        .settings-section { margin-bottom: 28px; }
+        .settings-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px; font-weight: 700; }
+        .setting-item { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--bg); border-radius: var(--radius-sm); margin-bottom: 10px; border: 1px solid var(--border); }
+        .setting-info { flex: 1; }
+        .setting-label { font-weight: 600; margin-bottom: 3px; font-size: 15px; }
+        .setting-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+        .toggle { width: 50px; height: 28px; background: var(--surface-light); border-radius: 14px; position: relative; cursor: pointer; transition: all 0.3s; flex-shrink: 0; margin-left: 12px; }
+        .toggle.on { background: var(--primary); }
+        .toggle.on.vat-toggle { background: var(--vat); }
+        .toggle-knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: white; border-radius: 50%; transition: all 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+        .toggle.on .toggle-knob { left: 24px; }
+        .sync-log { max-height: 140px; overflow-y: auto; background: var(--bg); border-radius: var(--radius-sm); padding: 12px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-muted); border: 1px solid var(--border); line-height: 1.5; }
+        .sync-log-entry { margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .sync-log-entry:last-child { border-bottom: none; }
+
+        /* Toast */
+        .toast-container { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; width: 90%; max-width: 400px; }
+        .toast { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 14px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; pointer-events: auto; }
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast.info { border-left: 4px solid var(--primary); }
+        .toast.vat { border-left: 4px solid var(--vat); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-15px); } }
+
+        /* Receipt Modal */
+        .receipt-modal-img { width: 100%; border-radius: var(--radius-sm); margin-bottom: 16px; }
+
+        /* Install Prompt */
+        .install-banner { position: fixed; bottom: 90px; left: 20px; right: 20px; background: var(--surface); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 16px; z-index: 60; display: none; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .install-banner.show { display: flex; }
+        .install-text { flex: 1; font-size: 14px; }
+        .install-btn { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .install-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+
+        .hidden { display: none !important; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--surface-light); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pinScreen">
+    <div class="pin-logo">AVA</div>
+    <div class="pin-title" id="pinTitle">Enter PIN</div>
+    <div class="pin-subtitle" id="pinSubtitle">Secure your financial data</div>
+    <div class="pin-dots" id="pinDots">
+        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">
+        <div class="pin-key" data-key="1">1</div>
+        <div class="pin-key" data-key="2">2</div>
+        <div class="pin-key" data-key="3">3</div>
+        <div class="pin-key" data-key="4">4</div>
+        <div class="pin-key" data-key="5">5</div>
+        <div class="pin-key" data-key="6">6</div>
+        <div class="pin-key" data-key="7">7</div>
+        <div class="pin-key" data-key="8">8</div>
+        <div class="pin-key" data-key="9">9</div>
+        <div class="pin-key empty"></div>
+        <div class="pin-key" data-key="0">0</div>
+        <div class="pin-key delete" data-key="delete">⌫</div>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+    <div class="app-header">
+        <div class="app-title">AVAwallet Pro</div>
+        <div class="header-actions">
+            <div class="sync-badge" id="syncBadge" title="Tap to sync now">
+                <span id="syncIcon">☁️</span>
+                <span id="syncText">Ready</span>
+            </div>
+            <button class="icon-btn" id="privacyBtn" title="Privacy Mode">👁️</button>
+            <button class="icon-btn" id="settingsBtn" title="Settings">⚙️</button>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="balance-card">
+            <div class="balance-label">TOTAL BALANCE</div>
+            <div class="balance-amount" id="balanceAmount">AED 0.00</div>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Income</div>
+                <div class="stat-value income" id="incomeAmount">AED 0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Expenses</div>
+                <div class="stat-value expense" id="expenseAmount">AED 0.00</div>
+            </div>
+        </div>
+        <div class="vat-summary-card" id="vatSummaryCard">
+            <div>
+                <div class="vat-summary-label">💰 TOTAL VAT RECOVERABLE (5%)</div>
+                <div style="font-size:11px;color:var(--text-muted);">From expenses with VAT</div>
+            </div>
+            <div class="vat-summary-value" id="vatAmount">AED 0.00</div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">Transactions</div>
+    </div>
+    <div class="filter-tabs">
+        <div class="filter-tab active" data-filter="all">All</div>
+        <div class="filter-tab" data-filter="income">Income</div>
+        <div class="filter-tab" data-filter="expense">Expense</div>
+        <div class="filter-tab" data-filter="vat">With VAT</div>
+        <div class="filter-tab" data-filter="pending">Pending Sync</div>
+    </div>
+    <div class="transaction-list" id="transactionList">
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div style="font-size:16px; font-weight:600; margin-bottom:6px;">No transactions yet</div>
+            <div style="font-size:14px;">Tap the + button to add fuel, maintenance, or trip income</div>
+        </div>
+    </div>
+
+    <button class="fab" id="addBtn">+</button>
+</div>
+
+<!-- Install Banner -->
+<div class="install-banner" id="installBanner">
+    <div class="install-text">📲 Install AVAwallet on your home screen for quick access</div>
+    <button class="install-btn" id="installBtn">Install</button>
+    <button class="install-close" id="installClose">✕</button>
+</div>
+
+<!-- ADD/EDIT TRANSACTION MODAL -->
+<div class="modal-overlay" id="transactionModal">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">Add Transaction</div>
+            <button class="modal-close" id="closeModal">✕</button>
+        </div>
+
+        <div class="form-group">
+            <div class="type-toggle">
+                <div class="type-option expense selected" data-type="expense">Expense</div>
+                <div class="type-option income" data-type="income">Income</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Amount (AED)</label>
+            <input type="number" class="form-input" id="txAmount" placeholder="0.00" step="0.01">
+        </div>
+
+        <!-- VAT Toggle -->
+        <div class="vat-toggle-row" id="vatToggleRow">
+            <div class="vat-toggle-info">
+                <div class="vat-toggle-label">📋 VAT Included?</div>
+                <div class="vat-toggle-desc">UAE standard rate: <span class="vat-rate">5%</span></div>
+            </div>
+            <div class="toggle" id="vatToggle"><div class="toggle-knob"></div></div>
+        </div>
+
+        <!-- VAT Amount Display -->
+        <div class="vat-amount-display hidden" id="vatDisplay">
+            <div class="vat-line">Subtotal: <span class="vat-num" id="vatSubtotal">AED 0.00</span></div>
+            <div class="vat-line">VAT (5%): <span class="vat-num" id="vatTax">AED 0.00</span></div>
+            <div class="vat-line" style="font-size:15px;font-weight:700;color:var(--text);margin-top:8px;">Total: <span style="color:var(--vat)" id="vatTotal">AED 0.00</span></div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Category <span style="color:var(--text-muted);font-weight:400">(tap ⚙️ in Settings to add more)</span></label>
+            <div class="category-grid" id="categoryGrid"></div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-input" id="txDesc" placeholder="e.g. ADNOC Fuel Dubai-Sharjah">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Bus / Driver</label>
+            <select class="form-select" id="txBusDriver">
+                <option value="">-- Select --</option>
+                <optgroup label="Buses">
+                    <option>UAQ-214</option>
+                    <option>AJM-214</option>
+                    <option>SHJ-214</option>
+                    <option>SHJ-220</option>
+                    <option>SHJ-213</option>
+                    <option>SHJ-218</option>
+                    <option>SHJ-220-218</option>
+                    <option>Jabal Ali</option>
+                </optgroup>
+                <optgroup label="Drivers">
+                    <option>Shahzeeb</option>
+                    <option>Haseeb</option>
+                    <option>SHAKIR ULLAH</option>
+                    <option>ILYAS BACHA</option>
+                    <option>MOHAMMED</option>
+                    <option>KAMRAN KHAN</option>
+                    <option>BASHEER</option>
+                    <option>SABIR</option>
+                    <option>SHARIF</option>
+                    <option>SALAM</option>
+                    <option>ABDUL GHAFOOR</option>
+                    <option>NISAR</option>
+                    <option>MUHAMMED ABBAS</option>
+                    <option>FAZAL HUSSAIN</option>
+                </optgroup>
+                <option>Other / Not Listed</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="txDate">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Receipt Photo</label>
+            <div class="receipt-upload" id="receiptUpload">
+                <div style="font-size:28px; margin-bottom:8px;">📷</div>
+                <div style="font-weight:600;">Tap to add receipt photo</div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Camera or gallery</div>
+                <input type="file" accept="image/*" capture="environment" id="receiptInput" style="display:none">
+                <img class="receipt-preview hidden" id="receiptPreview">
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="saveTx">💾 Save Transaction</button>
+        <button class="btn btn-danger hidden" id="deleteTx">🗑️ Delete Transaction</button>
+    </div>
+</div>
+
+<!-- CATEGORY MANAGER MODAL -->
+<div class="modal-overlay" id="categoryModal">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <div class="modal-title">Manage Categories</div>
+            <button class="modal-close" id="closeCategoryModal">✕</button>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Add New Category</div>
+            <div class="form-group">
+                <label class="form-label">Category Name</label>
+                <input type="text" class="form-input" id="newCatName" placeholder="e.g. Car Wash">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Icon (Emoji)</label>
+                <input type="text" class="form-input" id="newCatIcon" placeholder="e.g. 🚿" maxlength="2">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Type</label>
+                <div class="type-toggle">
+                    <div class="type-option expense selected" data-type="expense" id="newCatTypeExp">Expense</div>
+                    <div class="type-option income" data-type="income" id="newCatTypeInc">Income</div>
+                </div>
+            </div>
+            <button class="btn btn-success" id="addCategoryBtn">➕ Add Category</button>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Your Categories</div>
+            <div class="cat-list" id="categoryList"></div>
+        </div>
+
+        <button class="btn btn-secondary" id="resetCategoriesBtn">↺ Reset to Defaults</button>
+    </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <div class="modal-title">Settings</div>
+            <button class="modal-close" id="closeSettings">✕</button>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Security</div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-label">Change PIN</div>
+                    <div class="setting-desc">Set a new 4-digit security code</div>
+                </div>
+                <button class="icon-btn" id="changePinBtn">🔐</button>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-label">Privacy Mode</div>
+                    <div class="setting-desc">Hide all amounts on screen</div>
+                </div>
+                <div class="toggle" id="privacyToggle"><div class="toggle-knob"></div></div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Categories</div>
+            <div class="setting-item" id="manageCategoriesBtn" style="cursor:pointer;">
+                <div class="setting-info">
+                    <div class="setting-label">Manage Categories</div>
+                    <div class="setting-desc">Add, edit, or delete expense & income categories</div>
+                </div>
+                <span style="color:var(--text-muted);font-size:18px;">⚙️</span>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Google Sheet Sync (Zero Cost)</div>
+            <div class="form-group">
+                <label class="form-label">Google Apps Script URL</label>
+                <input type="url" class="form-input" id="driveUrl" placeholder="Paste URL from Step 4 below...">
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-label">Auto-sync</div>
+                    <div class="setting-desc">Sync automatically when online</div>
+                </div>
+                <div class="toggle" id="autoSyncToggle"><div class="toggle-knob"></div></div>
+            </div>
+            <button class="btn btn-primary" id="syncNowBtn">☁️ Sync Now to Google Sheet</button>
+            <button class="btn btn-secondary" id="testConnectionBtn">🔗 Test Connection</button>
+            <button class="btn btn-secondary" id="downloadBtn">💾 Download Backup to PC</button>
+            <div class="sync-log" id="syncLog">
+                <div class="sync-log-entry">No sync history yet. Follow the guide below to connect.</div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-title">Danger Zone</div>
+            <button class="btn btn-danger" id="clearDataBtn">🗑️ Clear All Local Data</button>
+        </div>
+
+        <div style="text-align:center; padding: 20px; color:var(--text-muted); font-size:12px; line-height:1.6;">
+            AVAwallet Pro v2.2 — AVA Passengers Transport<br>
+            VAT Tracking | Custom Categories | Google Sheet Sync | Offline Support
+        </div>
+    </div>
+</div>
+
+<!-- RECEIPT VIEWER -->
+<div class="modal-overlay" id="receiptModal">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <div class="modal-title">Receipt Photo</div>
+            <button class="modal-close" id="closeReceipt">✕</button>
+        </div>
+        <img class="receipt-modal-img" id="receiptModalImg" src="" alt="Receipt">
+    </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ==================== AVAwallet Pro v2.2 - VAT Tracking ====================
+const App = {
+    data: {
+        transactions: [],
+        settings: { pin: null, privacyMode: false, scriptUrl: '', autoSync: false, lastSync: null },
+        categories: null,
+        editingId: null,
+        tempReceipt: null,
+        currentFilter: 'all',
+        db: null,
+        editingCategoryId: null,
+        vatEnabled: false
+    },
+    deferredPrompt: null,
+    VAT_RATE: 0.05,
+
+    defaultCategories: {
+        expense: [
+            { id: 'fuel', name: 'Fuel', icon: '⛽' },
+            { id: 'maintenance', name: 'Maintenance', icon: '🔧' },
+            { id: 'tyres', name: 'Tyres', icon: '🛞' },
+            { id: 'spare_parts', name: 'Spare Parts', icon: '⚙️' },
+            { id: 'salik', name: 'Salik/Toll', icon: '🛣️' },
+            { id: 'staff_food', name: 'Staff Food', icon: '🍔' },
+            { id: 'bus_repair', name: 'Bus Repair', icon: '🚌' },
+            { id: 'insurance', name: 'Insurance', icon: '🛡️' },
+            { id: 'license', name: 'License', icon: '📄' },
+            { id: 'parking', name: 'Parking', icon: '🅿️' },
+            { id: 'cleaning', name: 'Cleaning', icon: '🧼' },
+            { id: 'other_exp', name: 'Other', icon: '📦' }
+        ],
+        income: [
+            { id: 'trip_fare', name: 'Trip Fare', icon: '💰' },
+            { id: 'rental', name: 'Rental', icon: '🏢' },
+            { id: 'business', name: 'Business', icon: '💼' },
+            { id: 'other_inc', name: 'Other', icon: '📦' }
+        ]
+    },
+
+    async init() {
+        await this.initDB();
+        this.loadCategories();
+        this.loadData();
+        this.setupListeners();
+        this.setupPWA();
+        this.checkPin();
+    },
+
+    initDB() {
+        return new Promise(resolve => {
+            const req = indexedDB.open('AVA_Wallet_DB', 1);
+            req.onerror = () => resolve();
+            req.onsuccess = e => { this.data.db = e.target.result; resolve(); };
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('receipts')) db.createObjectStore('receipts', { keyPath: 'id' });
+            };
+        });
+    },
+
+    setupPWA() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.log('SW registration failed'));
+        }
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            if (!window.matchMedia('(display-mode: standalone)').matches) {
+                document.getElementById('installBanner').classList.add('show');
+            }
+        });
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (this.deferredPrompt) {
+                this.deferredPrompt.prompt();
+                const { outcome } = await this.deferredPrompt.userChoice;
+                if (outcome === 'accepted') document.getElementById('installBanner').classList.remove('show');
+                this.deferredPrompt = null;
+            }
+        });
+        document.getElementById('installClose').addEventListener('click', () => {
+            document.getElementById('installBanner').classList.remove('show');
+        });
+    },
+
+    // ===== CATEGORY MANAGEMENT =====
+    loadCategories() {
+        const stored = localStorage.getItem('avawallet_categories');
+        if (stored) {
+            try { this.data.categories = JSON.parse(stored); }
+            catch (e) { this.data.categories = JSON.parse(JSON.stringify(this.defaultCategories)); }
+        } else {
+            this.data.categories = JSON.parse(JSON.stringify(this.defaultCategories));
+        }
+    },
+
+    saveCategories() {
+        localStorage.setItem('avawallet_categories', JSON.stringify(this.data.categories));
+    },
+
+    addCategory(name, icon, type) {
+        if (!name || !icon) { this.showToast('Enter name and icon', 'error'); return false; }
+        const id = 'cat_' + Date.now();
+        this.data.categories[type].push({ id, name: name.trim(), icon: icon.trim() });
+        this.saveCategories();
+        this.renderCategoryManager();
+        this.showToast('Category added!', 'success');
+        return true;
+    },
+
+    deleteCategory(id, type) {
+        const idx = this.data.categories[type].findIndex(c => c.id === id);
+        if (idx !== -1) {
+            this.data.categories[type].splice(idx, 1);
+            this.saveCategories();
+            this.renderCategoryManager();
+            this.showToast('Category deleted', 'info');
+        }
+    },
+
+    resetCategories() {
+        if (!confirm('Reset all categories to default? Custom categories will be lost.')) return;
+        this.data.categories = JSON.parse(JSON.stringify(this.defaultCategories));
+        this.saveCategories();
+        this.renderCategoryManager();
+        this.showToast('Categories reset to defaults', 'success');
+    },
+
+    renderCategoryManager() {
+        const list = document.getElementById('categoryList');
+        list.innerHTML = '';
+        ['expense', 'income'].forEach(type => {
+            this.data.categories[type].forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'cat-item';
+                item.innerHTML = `
+                    <div class="cat-item-icon">${cat.icon}</div>
+                    <div class="cat-item-name">${cat.name}</div>
+                    <div class="cat-item-type ${type}">${type}</div>
+                    <div class="cat-item-actions">
+                        <button class="cat-action delete" data-id="${cat.id}" data-type="${type}" title="Delete">🗑️</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        });
+        list.querySelectorAll('.cat-action.delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (confirm('Delete this category?')) {
+                    this.deleteCategory(btn.dataset.id, btn.dataset.type);
+                }
+            });
+        });
+    },
+
+    // ===== VAT CALCULATION =====
+    calculateVAT(amount, hasVAT) {
+        if (!hasVAT || !amount) return { subtotal: amount, vatAmount: 0, total: amount };
+        const subtotal = amount / (1 + this.VAT_RATE);
+        const vatAmount = amount - subtotal;
+        return { subtotal, vatAmount, total: amount };
+    },
+
+    updateVATDisplay() {
+        const amount = parseFloat(document.getElementById('txAmount').value) || 0;
+        const hasVAT = this.data.vatEnabled;
+        const display = document.getElementById('vatDisplay');
+
+        if (hasVAT && amount > 0) {
+            const calc = this.calculateVAT(amount, true);
+            document.getElementById('vatSubtotal').textContent = 'AED ' + calc.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('vatTax').textContent = 'AED ' + calc.vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('vatTotal').textContent = 'AED ' + calc.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            display.classList.remove('hidden');
+        } else {
+            display.classList.add('hidden');
+        }
+    },
+
+    // ===== ENCRYPTION =====
+    encrypt(text, key) {
+        if (!key) return btoa(unescape(encodeURIComponent(text)));
+        let r = '';
+        for (let i = 0; i < text.length; i++) r += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+        return btoa(r);
+    },
+
+    decrypt(text, key) {
+        try {
+            let d = atob(text);
+            if (!key) return decodeURIComponent(escape(d));
+            let r = '';
+            for (let i = 0; i < d.length; i++) r += String.fromCharCode(d.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            return r;
+        } catch (e) { return '{}'; }
+    },
+
+    storageKey() { return this.data.settings.pin || 'ava_default'; },
+
+    saveData() {
+        const payload = JSON.stringify({ transactions: this.data.transactions, settings: this.data.settings });
+        localStorage.setItem('avawallet_v2', this.encrypt(payload, this.storageKey()));
+        this.updateDashboard();
+        this.renderTransactions();
+    },
+
+    loadData() {
+        const stored = localStorage.getItem('avawallet_v2');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(this.decrypt(stored, this.storageKey()));
+                this.data.transactions = parsed.transactions || [];
+                this.data.settings = { ...this.data.settings, ...parsed.settings };
+            } catch (e) { console.error('Load failed', e); }
+        }
+        this.updateDashboard();
+        this.renderTransactions();
+        this.updatePrivacyUI();
+    },
+
+    checkPin() {
+        if (!this.data.settings.pin) this.showPin('setup');
+        else this.showPin('enter');
+    },
+
+    showPin(mode) {
+        const scr = document.getElementById('pinScreen');
+        const title = document.getElementById('pinTitle');
+        const sub = document.getElementById('pinSubtitle');
+        const dots = document.querySelectorAll('.pin-dot');
+        const err = document.getElementById('pinError');
+        scr.style.display = 'flex'; document.getElementById('app').style.display = 'none';
+        let pin = '', confirmPin = '', step = mode === 'setup' ? 1 : 0;
+        title.textContent = mode === 'setup' ? 'Create PIN' : 'Enter PIN';
+        sub.textContent = mode === 'setup' ? 'Choose a 4-digit code' : 'Secure your financial data';
+        err.classList.remove('show'); dots.forEach(d => d.classList.remove('filled')); pin = '';
+
+        const handle = key => {
+            if (key === 'delete') { if (pin.length) { pin = pin.slice(0, -1); dots[pin.length].classList.remove('filled'); } return; }
+            if (pin.length < 4) {
+                pin += key; dots[pin.length - 1].classList.add('filled'); err.classList.remove('show');
+                if (pin.length === 4) setTimeout(() => {
+                    if (mode === 'setup') {
+                        if (step === 1) { confirmPin = pin; pin = ''; dots.forEach(d => d.classList.remove('filled')); title.textContent = 'Confirm PIN'; sub.textContent = 'Enter it again to confirm'; step = 2; }
+                        else if (step === 2) {
+                            if (pin === confirmPin) { this.data.settings.pin = pin; this.saveData(); this.enterApp(); }
+                            else { err.textContent = 'PINs do not match. Try again.'; err.classList.add('show'); pin = ''; confirmPin = ''; dots.forEach(d => d.classList.remove('filled')); title.textContent = 'Create PIN'; sub.textContent = 'Choose a 4-digit code'; step = 1; }
+                        }
+                    } else {
+                        if (pin === this.data.settings.pin) this.enterApp();
+                        else { err.textContent = 'Incorrect PIN. Try again.'; err.classList.add('show'); pin = ''; dots.forEach(d => d.classList.remove('filled')); }
+                    }
+                }, 200);
+            }
+        };
+
+        document.querySelectorAll('.pin-key').forEach(k => {
+            const nk = k.cloneNode(true); k.parentNode.replaceChild(nk, k);
+            if (!nk.classList.contains('empty')) nk.addEventListener('click', () => handle(nk.dataset.key));
+        });
+    },
+
+    enterApp() {
+        document.getElementById('pinScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        this.updateSyncBadge();
+    },
+
+    setupListeners() {
+        document.getElementById('addBtn').addEventListener('click', () => this.openTxModal());
+        document.getElementById('closeModal').addEventListener('click', () => this.closeModal('transactionModal'));
+        document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
+        document.getElementById('closeSettings').addEventListener('click', () => this.closeModal('settingsModal'));
+        document.getElementById('privacyBtn').addEventListener('click', () => this.togglePrivacy());
+        document.getElementById('closeReceipt').addEventListener('click', () => this.closeModal('receiptModal'));
+
+        document.querySelectorAll('#transactionModal .type-option').forEach(o => o.addEventListener('click', () => this.selectType(o.dataset.type)));
+        this.renderCategories('expense');
+
+        document.getElementById('receiptUpload').addEventListener('click', () => document.getElementById('receiptInput').click());
+        document.getElementById('receiptInput').addEventListener('change', e => this.handleReceipt(e));
+
+        document.getElementById('saveTx').addEventListener('click', () => this.saveTransaction());
+        document.getElementById('deleteTx').addEventListener('click', () => this.deleteTransaction());
+
+        document.querySelectorAll('.filter-tab').forEach(t => t.addEventListener('click', () => {
+            document.querySelectorAll('.filter-tab').forEach(x => x.classList.remove('active'));
+            t.classList.add('active'); this.data.currentFilter = t.dataset.filter; this.renderTransactions();
+        }));
+
+        document.getElementById('changePinBtn').addEventListener('click', () => {
+            this.closeModal('settingsModal');
+            setTimeout(() => { this.data.settings.pin = null; this.saveData(); this.showPin('setup'); }, 300);
+        });
+
+        document.getElementById('privacyToggle').addEventListener('click', () => this.togglePrivacy());
+        document.getElementById('autoSyncToggle').addEventListener('click', () => {
+            this.data.settings.autoSync = !this.data.settings.autoSync;
+            document.getElementById('autoSyncToggle').classList.toggle('on', this.data.settings.autoSync);
+            this.saveData();
+            this.showToast(this.data.settings.autoSync ? 'Auto-sync enabled' : 'Auto-sync disabled', 'info');
+        });
+
+        document.getElementById('syncNowBtn').addEventListener('click', () => this.syncNow());
+        document.getElementById('testConnectionBtn').addEventListener('click', () => this.testConnection());
+        document.getElementById('downloadBtn').addEventListener('click', () => this.downloadBackup());
+        document.getElementById('clearDataBtn').addEventListener('click', () => this.clearAll());
+        document.getElementById('driveUrl').addEventListener('change', e => { this.data.settings.scriptUrl = e.target.value.trim(); this.saveData(); });
+
+        document.getElementById('syncBadge').addEventListener('click', () => { if (this.data.settings.scriptUrl) this.syncNow(); else this.openSettings(); });
+
+        // VAT Toggle
+        document.getElementById('vatToggle').addEventListener('click', () => {
+            this.data.vatEnabled = !this.data.vatEnabled;
+            const toggle = document.getElementById('vatToggle');
+            toggle.classList.toggle('on', this.data.vatEnabled);
+            toggle.classList.toggle('vat-toggle', this.data.vatEnabled);
+            this.updateVATDisplay();
+        });
+
+        // VAT amount update on input
+        document.getElementById('txAmount').addEventListener('input', () => this.updateVATDisplay());
+
+        // Category Manager
+        document.getElementById('manageCategoriesBtn').addEventListener('click', () => this.openCategoryManager());
+        document.getElementById('closeCategoryModal').addEventListener('click', () => this.closeModal('categoryModal'));
+        document.getElementById('addCategoryBtn').addEventListener('click', () => {
+            const name = document.getElementById('newCatName').value.trim();
+            const icon = document.getElementById('newCatIcon').value.trim();
+            const type = document.querySelector('#categoryModal .type-option.selected').dataset.type;
+            if (this.addCategory(name, icon, type)) {
+                document.getElementById('newCatName').value = '';
+                document.getElementById('newCatIcon').value = '';
+            }
+        });
+        document.getElementById('resetCategoriesBtn').addEventListener('click', () => this.resetCategories());
+        document.querySelectorAll('#categoryModal .type-option').forEach(o => o.addEventListener('click', () => {
+            document.querySelectorAll('#categoryModal .type-option').forEach(x => x.classList.remove('selected'));
+            o.classList.add('selected');
+        }));
+
+        window.addEventListener('online', () => { this.showToast('Back online', 'success'); this.updateSyncBadge(); if (this.data.settings.autoSync) this.syncNow(); });
+        window.addEventListener('offline', () => { this.showToast('Offline mode — data saved locally', 'info'); this.updateSyncBadge(); });
+    },
+
+    selectType(type) {
+        document.querySelectorAll('#transactionModal .type-option').forEach(o => o.classList.toggle('selected', o.dataset.type === type));
+        this.renderCategories(type);
+    },
+
+    renderCategories(type) {
+        const g = document.getElementById('categoryGrid'); g.innerHTML = '';
+        const cats = this.data.categories[type] || [];
+        cats.forEach(c => {
+            const chip = document.createElement('div'); chip.className = 'category-chip'; chip.dataset.id = c.id;
+            chip.innerHTML = `<div style="font-size:22px;margin-bottom:4px">${c.icon}</div><div>${c.name}</div>`;
+            chip.addEventListener('click', () => { g.querySelectorAll('.category-chip').forEach(x => x.classList.remove('selected')); chip.classList.add('selected'); });
+            g.appendChild(chip);
+        });
+    },
+
+    openCategoryManager() {
+        this.closeModal('settingsModal');
+        setTimeout(() => {
+            this.renderCategoryManager();
+            document.getElementById('categoryModal').classList.add('show');
+        }, 300);
+    },
+
+    openTxModal(id) {
+        this.data.editingId = id; this.data.tempReceipt = null; this.data.vatEnabled = false;
+        const m = document.getElementById('transactionModal');
+        document.getElementById('txAmount').value = '';
+        document.getElementById('txDesc').value = '';
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('txBusDriver').value = '';
+        document.querySelectorAll('#categoryGrid .category-chip').forEach(c => c.classList.remove('selected'));
+        document.getElementById('receiptPreview').classList.add('hidden');
+        document.getElementById('receiptUpload').classList.remove('has-image');
+        document.getElementById('deleteTx').classList.add('hidden');
+        document.getElementById('vatToggle').classList.remove('on', 'vat-toggle');
+        document.getElementById('vatDisplay').classList.add('hidden');
+
+        if (id) {
+            const tx = this.data.transactions.find(t => t.id === id);
+            if (tx) {
+                document.getElementById('modalTitle').textContent = 'Edit Transaction';
+                this.selectType(tx.type);
+                document.getElementById('txAmount').value = tx.amount;
+                document.getElementById('txDesc').value = tx.description;
+                document.getElementById('txDate').value = tx.date;
+                document.getElementById('txBusDriver').value = tx.busDriver || '';
+
+                // Restore VAT state
+                if (tx.hasVAT) {
+                    this.data.vatEnabled = true;
+                    document.getElementById('vatToggle').classList.add('on', 'vat-toggle');
+                    this.updateVATDisplay();
+                }
+
+                setTimeout(() => { const c = document.querySelector(`#categoryGrid .category-chip[data-id="${tx.category}"]`); if (c) c.classList.add('selected'); }, 0);
+                if (tx.receiptId) this.getReceipt(tx.receiptId).then(url => { if (url) { this.data.tempReceipt = url; const p = document.getElementById('receiptPreview'); p.src = url; p.classList.remove('hidden'); document.getElementById('receiptUpload').classList.add('has-image'); } });
+                document.getElementById('deleteTx').classList.remove('hidden');
+            }
+        } else {
+            document.getElementById('modalTitle').textContent = 'Add Transaction';
+            this.selectType('expense');
+        }
+        m.classList.add('show');
+    },
+
+    closeModal(id) { document.getElementById(id).classList.remove('show'); },
+
+    handleReceipt(e) {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => { this.data.tempReceipt = ev.target.result; const p = document.getElementById('receiptPreview'); p.src = ev.target.result; p.classList.remove('hidden'); document.getElementById('receiptUpload').classList.add('has-image'); };
+        r.readAsDataURL(f);
+    },
+
+    saveReceipt(id, data) { return new Promise(r => { if (!this.data.db) { r(); return; } const tx = this.data.db.transaction(['receipts'], 'readwrite'); const s = tx.objectStore('receipts'); s.put({ id, data }); tx.oncomplete = () => r(); tx.onerror = () => r(); }); },
+    getReceipt(id) { return new Promise(r => { if (!this.data.db) { r(null); return; } const tx = this.data.db.transaction(['receipts'], 'readonly'); const s = tx.objectStore('receipts'); const q = s.get(id); q.onsuccess = () => r(q.result ? q.result.data : null); q.onerror = () => r(null); }); },
+    deleteReceipt(id) { return new Promise(r => { if (!this.data.db) { r(); return; } const tx = this.data.db.transaction(['receipts'], 'readwrite'); const s = tx.objectStore('receipts'); s.delete(id); tx.oncomplete = () => r(); }); },
+
+    saveTransaction() {
+        const amt = parseFloat(document.getElementById('txAmount').value);
+        const desc = document.getElementById('txDesc').value.trim();
+        const date = document.getElementById('txDate').value;
+        const type = document.querySelector('#transactionModal .type-option.selected').dataset.type;
+        const catEl = document.querySelector('#categoryGrid .category-chip.selected');
+        const busDriver = document.getElementById('txBusDriver').value;
+        const hasVAT = this.data.vatEnabled;
+
+        if (!amt || amt <= 0) { this.showToast('Enter a valid amount', 'error'); return; }
+        if (!desc) { this.showToast('Enter a description', 'error'); return; }
+        if (!date) { this.showToast('Select a date', 'error'); return; }
+        if (!catEl) { this.showToast('Select a category', 'error'); return; }
+
+        const catId = catEl.dataset.id;
+        const cat = (this.data.categories[type] || []).find(c => c.id === catId);
+        if (!cat) { this.showToast('Category not found', 'error'); return; }
+
+        const vatCalc = this.calculateVAT(amt, hasVAT);
+
+        const tx = {
+            id: this.data.editingId || 'local_' + Date.now(),
+            type, amount: amt, description: desc, date, category: cat.id,
+            categoryName: cat.name, icon: cat.icon, busDriver: busDriver || '',
+            hasVAT: hasVAT,
+            vatAmount: vatCalc.vatAmount,
+            subtotal: vatCalc.subtotal,
+            synced: false, timestamp: new Date().toISOString()
+        };
+
+        if (this.data.tempReceipt) { tx.receiptId = tx.id; this.saveReceipt(tx.id, this.data.tempReceipt); }
+        else if (this.data.editingId) { const old = this.data.transactions.find(t => t.id === this.data.editingId); if (old && old.receiptId && !this.data.tempReceipt) tx.receiptId = old.receiptId; }
+
+        if (this.data.editingId) { const idx = this.data.transactions.findIndex(t => t.id === this.data.editingId); if (idx !== -1) this.data.transactions[idx] = tx; }
+        else this.data.transactions.unshift(tx);
+
+        this.saveData(); this.closeModal('transactionModal');
+        this.showToast(this.data.editingId ? 'Updated' : 'Saved locally', 'success');
+        if (this.data.settings.autoSync && navigator.onLine) this.syncNow();
+    },
+
+    deleteTransaction() {
+        if (!this.data.editingId || !confirm('Delete this transaction permanently?')) return;
+        const tx = this.data.transactions.find(t => t.id === this.data.editingId);
+        if (tx && tx.receiptId) this.deleteReceipt(tx.receiptId);
+        this.data.transactions = this.data.transactions.filter(t => t.id !== this.data.editingId);
+        this.saveData(); this.closeModal('transactionModal'); this.showToast('Deleted', 'info');
+    },
+
+    updateDashboard() {
+        const inc = this.data.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const exp = this.data.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const bal = inc - exp;
+        const totalVAT = this.data.transactions.filter(t => t.type === 'expense' && t.hasVAT).reduce((s, t) => s + (t.vatAmount || 0), 0);
+        const fmt = n => 'AED ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const h = this.data.settings.privacyMode;
+
+        document.getElementById('balanceAmount').textContent = fmt(bal);
+        document.getElementById('incomeAmount').textContent = fmt(inc);
+        document.getElementById('expenseAmount').textContent = fmt(exp);
+        document.getElementById('vatAmount').textContent = fmt(totalVAT);
+
+        if (h) {
+            document.getElementById('balanceAmount').classList.add('hidden');
+            document.getElementById('incomeAmount').classList.add('hidden');
+            document.getElementById('expenseAmount').classList.add('hidden');
+            document.getElementById('vatAmount').classList.add('hidden');
+        } else {
+            document.getElementById('balanceAmount').classList.remove('hidden');
+            document.getElementById('incomeAmount').classList.remove('hidden');
+            document.getElementById('expenseAmount').classList.remove('hidden');
+            document.getElementById('vatAmount').classList.remove('hidden');
+        }
+    },
+
+    renderTransactions() {
+        const list = document.getElementById('transactionList');
+        let txs = this.data.transactions;
+        if (this.data.currentFilter === 'pending') txs = txs.filter(t => !t.synced);
+        else if (this.data.currentFilter === 'vat') txs = txs.filter(t => t.hasVAT);
+        else if (this.data.currentFilter !== 'all') txs = txs.filter(t => t.type === this.data.currentFilter);
+
+        if (!txs.length) {
+            list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="font-size:16px;font-weight:600;margin-bottom:6px;">No transactions</div><div style="font-size:14px;">Tap + to add fuel, maintenance, or income</div></div>`;
+            return;
+        }
+
+        list.innerHTML = '';
+        txs.forEach((tx, i) => {
+            const el = document.createElement('div'); el.className = 'transaction-item';
+            const h = this.data.settings.privacyMode;
+            const syncDot = tx.synced ? '<span class="sync-status-dot synced" title="Synced"></span>' : '<span class="sync-status-dot pending" title="Not synced yet"></span>';
+            const vatBadge = tx.hasVAT ? `<span class="vat-badge">VAT ${(tx.vatAmount || 0).toFixed(2)}</span>` : '';
+            el.innerHTML = `
+                <div class="transaction-icon ${tx.type}">${tx.icon}</div>
+                <div class="transaction-info">
+                    <div class="transaction-title">${tx.description}${vatBadge}</div>
+                    <div class="transaction-meta">${syncDot}${tx.categoryName}${tx.busDriver ? ' • ' + tx.busDriver : ''} • ${new Date(tx.date).toLocaleDateString()}</div>
+                </div>
+                <div class="transaction-amount ${tx.type} ${h ? 'hidden' : ''}">${tx.type === 'income' ? '+' : '-'}AED ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+            `;
+            el.addEventListener('click', () => this.openTxModal(tx.id));
+            if (tx.receiptId) {
+                el.addEventListener('contextmenu', e => { e.preventDefault(); this.viewReceipt(tx.receiptId); });
+                el.title = 'Long-press to view receipt';
+            }
+            list.appendChild(el);
+        });
+    },
+
+    viewReceipt(receiptId) {
+        this.getReceipt(receiptId).then(url => {
+            if (url) { document.getElementById('receiptModalImg').src = url; document.getElementById('receiptModal').classList.add('show'); }
+            else this.showToast('Receipt not found', 'error');
+        });
+    },
+
+    togglePrivacy() {
+        this.data.settings.privacyMode = !this.data.settings.privacyMode;
+        this.saveData(); this.updatePrivacyUI();
+        this.showToast(this.data.settings.privacyMode ? 'Privacy mode ON' : 'Privacy mode OFF', 'info');
+    },
+
+    updatePrivacyUI() {
+        const h = this.data.settings.privacyMode;
+        document.getElementById('privacyBtn').classList.toggle('active', h);
+        document.getElementById('privacyToggle').classList.toggle('on', h);
+        this.updateDashboard();
+        this.renderTransactions();
+    },
+
+    openSettings() {
+        document.getElementById('driveUrl').value = this.data.settings.scriptUrl || '';
+        document.getElementById('autoSyncToggle').classList.toggle('on', this.data.settings.autoSync);
+        document.getElementById('privacyToggle').classList.toggle('on', this.data.settings.privacyMode);
+        this.renderSyncLog();
+        document.getElementById('settingsModal').classList.add('show');
+    },
+
+    renderSyncLog() {
+        const log = document.getElementById('syncLog');
+        const history = JSON.parse(localStorage.getItem('avawallet_sync_log') || '[]');
+        if (!history.length) { log.innerHTML = '<div class="sync-log-entry">No sync history yet.</div>'; return; }
+        log.innerHTML = history.slice(-20).map(h => `<div class="sync-log-entry">${new Date(h.time).toLocaleString()} — ${h.msg}</div>`).join('');
+    },
+
+    addLog(msg) {
+        const history = JSON.parse(localStorage.getItem('avawallet_sync_log') || '[]');
+        history.push({ time: new Date().toISOString(), msg });
+        if (history.length > 100) history.shift();
+        localStorage.setItem('avawallet_sync_log', JSON.stringify(history));
+        this.renderSyncLog();
+    },
+
+    async testConnection() {
+        if (!this.data.settings.scriptUrl) { this.showToast('Paste the Google Apps Script URL first', 'error'); return; }
+        this.showToast('Testing connection...', 'info');
+        try {
+            const res = await fetch(this.data.settings.scriptUrl + '?action=test', { method: 'GET' });
+            const json = await res.json();
+            if (json.success) { this.showToast('✓ Connected to Google Sheet!', 'success'); this.addLog('Connection test: SUCCESS'); }
+            else throw new Error('Failed');
+        } catch (e) { this.showToast('✗ Connection failed. Check URL.', 'error'); this.addLog('Connection test: FAILED'); }
+    },
+
+    async syncNow() {
+        if (!this.data.settings.scriptUrl) { this.showToast('Set Google Apps Script URL in Settings', 'error'); this.openSettings(); return; }
+        if (!navigator.onLine) { this.showToast('Offline — sync queued for later', 'info'); this.addLog('Sync queued (offline)'); return; }
+
+        const pending = this.data.transactions.filter(t => !t.synced);
+        if (!pending.length) { this.showToast('All transactions already synced', 'success'); this.updateSyncBadge('synced'); return; }
+
+        this.updateSyncBadge('syncing');
+        let ok = 0, fail = 0;
+
+        for (const tx of pending) {
+            try {
+                let receiptUrl = tx.receiptUrl || '';
+                if (tx.receiptId && !receiptUrl) {
+                    const data = await this.getReceipt(tx.receiptId);
+                    if (data) {
+                        const up = await fetch(this.data.settings.scriptUrl, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'uploadReceipt', base64Data: data, fileName: `receipt-${tx.id}.jpg`, mimeType: 'image/jpeg' })
+                        });
+                        const upj = await up.json();
+                        if (upj.success) { receiptUrl = upj.fileUrl; tx.receiptUrl = receiptUrl; }
+                    }
+                }
+
+                const res = await fetch(this.data.settings.scriptUrl, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'saveTransaction', date: tx.date, type: tx.type,
+                        category: tx.categoryName, description: tx.description,
+                        amount: tx.amount, busDriver: tx.busDriver || '', receiptUrl: receiptUrl,
+                        hasVAT: tx.hasVAT || false, vatAmount: tx.vatAmount || 0, subtotal: tx.subtotal || tx.amount
+                    })
+                });
+                const j = await res.json();
+                if (j.success) { tx.synced = true; tx.syncedAt = new Date().toISOString(); ok++; }
+                else throw new Error(j.error);
+            } catch (e) { console.error(e); fail++; }
+        }
+
+        this.saveData();
+        if (fail === 0) { this.updateSyncBadge('synced'); this.showToast(`${ok} transaction(s) synced ✓`, 'success'); this.addLog(`Synced ${ok} transactions`); }
+        else { this.updateSyncBadge('failed'); this.showToast(`${ok} synced, ${fail} failed`, 'error'); this.addLog(`Sync result: ${ok} OK, ${fail} FAILED`); }
+    },
+
+    updateSyncBadge(state) {
+        const b = document.getElementById('syncBadge'), ic = document.getElementById('syncIcon'), tx = document.getElementById('syncText');
+        if (!state) state = !navigator.onLine ? 'offline' : (this.data.transactions.some(t => !t.synced) ? 'pending' : 'synced');
+        b.className = 'sync-badge';
+        switch (state) {
+            case 'synced': b.classList.add('synced'); ic.textContent = '✓'; tx.textContent = 'Synced'; break;
+            case 'syncing': b.classList.add('syncing'); ic.textContent = '↻'; tx.textContent = 'Syncing'; break;
+            case 'failed': b.classList.add('failed'); ic.textContent = '!'; tx.textContent = 'Failed'; break;
+            case 'pending': b.classList.add('failed'); ic.textContent = '●'; tx.textContent = 'Pending'; break;
+            default: b.classList.add('failed'); ic.textContent = '—'; tx.textContent = 'Offline';
+        }
+    },
+
+    downloadBackup() {
+        const payload = { transactions: this.data.transactions, settings: this.data.settings, categories: this.data.categories, exported: new Date().toISOString(), version: '2.2' };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `avawallet-backup-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        this.showToast('Backup downloaded to your device', 'success');
+    },
+
+    clearAll() {
+        if (!confirm('WARNING: This will delete ALL local data including receipts and custom categories. Continue?')) return;
+        if (!confirm('FINAL WARNING: This cannot be undone. Are you absolutely sure?')) return;
+        this.data.transactions = []; this.data.settings = { pin: null, privacyMode: false, scriptUrl: '', autoSync: false, lastSync: null };
+        this.data.categories = JSON.parse(JSON.stringify(this.defaultCategories));
+        if (this.data.db) { const tx = this.data.db.transaction(['receipts'], 'readwrite'); tx.objectStore('receipts').clear(); }
+        localStorage.removeItem('avawallet_v2'); localStorage.removeItem('avawallet_sync_log'); localStorage.removeItem('avawallet_categories');
+        this.showToast('All data cleared', 'info'); this.closeModal('settingsModal');
+        setTimeout(() => location.reload(), 1000);
+    },
+
+    showToast(msg, type = 'info') {
+        const c = document.getElementById('toastContainer');
+        const t = document.createElement('div'); t.className = `toast ${type}`;
+        const icons = { success: '✓', error: '✕', info: 'ℹ', vat: '📋' };
+        t.innerHTML = `<span style="font-size:16px">${icons[type] || 'ℹ'}</span><span>${msg}</span>`;
+        c.appendChild(t); setTimeout(() => t.remove(), 3000);
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
+</body>
+</html>
